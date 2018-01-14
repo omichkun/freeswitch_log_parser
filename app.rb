@@ -1,24 +1,7 @@
 require 'time'
 
-=begin 
-TO DO: 
-1. get call route
-2. get actions which are executed for each call
-3. take params from command line to get one call 
-4. get reason of end of call 
-
-You can run script with three ways 
-1. just run script with% ruby app.rb
-It takes file freeswitch.log which should be placed near app.rb and parses it. After it starts you can see on console screen all the calls which are presented in this file. 
-2. Run script and set in command line path to parsed file. It works the same way as previous but parses the file you have set instead of default freeswitch.log
-3. Run script with parameters. All of them are optional 
-	The first parameter should be abonent A, the second - abonent B
-	If you run script with the parameters in that case the filename is required parameter and it should go at the end of the command line
-=end
 
 case ARGV.length
-	when 0
-		filename = "freeswitch.log"
 	when 1
 		filename = ARGV[0]
 	when 2

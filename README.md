@@ -2,6 +2,15 @@
 Parses freeswitch logs for calls
 
 It is in very early phase of development.
-Place freeswitch log in the app folder, name it 'freeswitch.log' and run:
+TO DO: 
+1. get call route
+2. get actions which are executed for each call
+3. take params from command line to get one call 
+4. get reason of end of call 
 
-`ruby app.rb`
+
+Run script and set in command line path to parsed file. 
+
+For example: 
+
+`ruby app.rb /path/to/freeswitch.log`
