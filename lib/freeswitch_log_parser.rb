@@ -1,6 +1,4 @@
 require 'time'
-# require_relative 'freeswitch_log_parser/call'
-
 
 module FreeswitchLogParser 
 	Call = Struct.new(:uuid, 
@@ -15,11 +13,6 @@ module FreeswitchLogParser
 										:routes_pass_lines, 
 										:routes_pass_names, 
 										:actions)
-
-	def self.is_valid_uuid?(line)
-  	uuid_regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-  	uuid_regex.match?(line.to_s.downcase) ? true : false
-	end
 
 	def self.find_uuids(line)
   	uuid_regex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
@@ -40,18 +33,24 @@ module FreeswitchLogParser
 		call
 	end
 
-	def self.run(params)
-		case params.length
-			when 1
-				filename = params[0]
-			when 2
-				filename = params[0]
-				abonent_a = params[1]
-			when 3 
-				filename = params[0]
-				abonent_a = params[1]
-				abonent_b = params[2]
+	def self.parse_line(line, call, line_number)
+		case line 
+		when -> (l) { l.match(/(?<=\[)INFO(?=\])/) && l.match(/Processing/)}
+			call.abonent_b = /(?<=\-\>)(.+)(?=\s)/.match(line).to_s.split(" ")[0].strip
+		when /State DESTROY going to sleep/
+			call.time_end = Time.parse(/\d{4}\-\d{2}\-\d{2}\s\d{2}\:\d{2}\:\d{2}\.\d{6}/.match(line).to_s)
+			call.line_end = line_number
+			call.call_length = call.time_end - call.time_start 
+		when /Regex \(PASS\)/
+			call.routes_pass_lines << line
+			call.routes_pass_names << /\[(.*?)\]/.match(line).to_s
+		when /Action/
+			call.actions << line
 		end
+	end
+
+	def self.run(params)
+		filename = params[0]
 
 		begin 
 			lines = File.readlines(filename)
@@ -59,9 +58,7 @@ module FreeswitchLogParser
 			raise "No such file. Check if it exists or if you have rights to read it."
 		end
 
-
 		calls = []
-
 		line_number = 1
 		lines.each do |line|
 			
@@ -71,41 +68,16 @@ module FreeswitchLogParser
 			end
 
 			uuid = find_uuids(line).first
-
 			call = calls.select {|c| c.uuid == uuid}.first
 			if call
 				call.lines << line
-				
-				# Define abonent B if it exists
-				if /(?<=\[)INFO(?=\])/.match(line) && /Processing/.match(line)
-					call.abonent_b = /(?<=\-\>)(.+)(?=\s)/.match(line).to_s.split(" ")[0].strip
-				end
-
-				# Define end of the call
-				if /State DESTROY going to sleep/.match(line)
-					call.time_end = Time.parse(/\d{4}\-\d{2}\-\d{2}\s\d{2}\:\d{2}\:\d{2}\.\d{6}/.match(line).to_s)
-					call.line_end = line_number
-					call.call_length = call.time_end - call.time_start 
-				end
-
-				# Get PASS routes 
-				if /Regex \(PASS\)/.match(line)
-					call.routes_pass_lines << line
-					call.routes_pass_names << /\[(.*?)\]/.match(line).to_s
-				end
-
-				if /Action/.match(line)
-					call.actions << line
-				end
+				parse_line(line, call, line_number)
 			end
-
 
 			line_number += 1
 		end
 
-		calls.each do |call|
-			calls.delete(call) if call.abonent_b == nil
-		end
+		calls.delete_if {|call| call.abonent_b == nil}
 
 		calls.each  do |call|	
 			puts  "#{call.line_start} #{call.uuid}: #{call.abonent_a} -> #{call.abonent_b} #{call.call_length}s"
